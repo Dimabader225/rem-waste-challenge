@@ -55,10 +55,6 @@ def extract_audio_features(audio_path):
     return np.array(features[:20])  # Limit to 20 features for our dummy model
 
 
-
-
-
-
 def download_video(video_url):
     temp_dir = tempfile.mkdtemp()
     video_path = os.path.join(temp_dir, "temp_video.mp4")
@@ -84,8 +80,6 @@ def download_video(video_url):
         raise ValueError("Downloaded video file is invalid or corrupted.")
 
     return video_path, temp_dir
-
-
 
 
 # Extract audio from video
@@ -130,42 +124,45 @@ def classify_accent(audio_path, model):
 
 # Main processing function
 def process_video_url(video_url):
-    # Initialize model (in production, load a pre-trained model)
-    model = train_accent_classifier()
+    # --- TEMPORARY DEBUGGING: Return dummy data instead of processing ---
+    print(f"Skipping video processing for: {video_url}") # You'll see this in logs
+    return {
+        "accent": "Dummy Accent",
+        "confidence": "99.9%",
+        "transcription": "This is a dummy transcription.",
+        "summary": "This is a dummy summary because processing is skipped."
+    }
+    # --- END TEMPORARY DEBUGGING ---
 
-    # Download video
-    video_path, video_dir = download_video(video_url)
+    # # Original full processing logic (commented out for now)
+    # model = train_accent_classifier()
 
-    try:
-        # Extract audio
-        audio_path, audio_dir = extract_audio(video_path)
+    # video_path, video_dir = download_video(video_url)
 
-        try:
-            # Analyze audio
-            transcription = transcribe_audio(audio_path)
-            accent, confidence = classify_accent(audio_path, model)
+    # try:
+    #     audio_path, audio_dir = extract_audio(video_path)
 
-            # Prepare results
-            results = {
-                "accent": accent,
-                "confidence": f"{confidence:.1f}%",
-                "transcription": transcription,
-                "summary": f"The speaker has a {accent} accent with {confidence:.1f}% confidence."
-            }
+    #     try:
+    #         transcription = transcribe_audio(audio_path)
+    #         accent, confidence = classify_accent(audio_path, model)
 
-            return results
-        finally:
-            # Clean up audio files
-            if os.path.exists(audio_path):
-                os.remove(audio_path)
-            if os.path.exists(audio_dir):
-                os.rmdir(audio_dir)
-    finally:
-        # Clean up video files
-        if os.path.exists(video_path):
-            os.remove(video_path)
-        if os.path.exists(video_dir):
-            os.rmdir(video_dir)
+    #         results = {
+    #             "accent": accent,
+    #             "confidence": f"{confidence:.1f}%",
+    #             "transcription": transcription,
+    #             "summary": f"The speaker has a {accent} accent with {confidence:.1f}% confidence."
+    #         }
+    #         return results
+    #     finally:
+    #         if os.path.exists(audio_path):
+    #             os.remove(audio_path)
+    #         if os.path.exists(audio_dir):
+    #             os.rmdir(audio_dir)
+    # finally:
+    #     if os.path.exists(video_path):
+    #         os.remove(video_path)
+    #     if os.path.exists(video_dir):
+    #         os.rmdir(video_dir)
 
 
 # Flask web application
@@ -174,32 +171,30 @@ from flask import Flask, request, render_template, jsonify
 
 basedir = os.path.abspath(os.path.dirname(__file__))
 template_dir = os.path.join(basedir, 'templates')
-
-# Keep these print statements for debugging, they don't harm
+# Debugging output
 print(f"Current working directory: {os.getcwd()}")
 print(f"Script directory: {basedir}")
 print(f"Templates directory: {template_dir}")
 print(f"Templates exists: {os.path.exists(template_dir)}")
 print(f"Templates contents: {os.listdir(template_dir)}")
 
+# Initialize Flask with explicit template folder
 app = Flask(__name__, template_folder=template_dir)
+
 
 @app.route('/', methods=['GET', 'POST'])
 def index():
-    # --- TEMPORARY DEBUGGING CODE: This line will run instead of your original logic ---
-    return "Hello from Render! Your basic Flask app is running."
-    # --- END TEMPORARY DEBUGGING CODE ---
-
-    # The original code for handling POST requests will be commented out for now
-    # if request.method == 'POST':
-    #     video_url = request.form.get('video_url')
-    #     try:
-    #         results = process_video_url(video_url)
-    #         return render_template('results.html', results=results)
-    #     except Exception as e:
-    #         return render_template('error.html', error=str(e))
-    # # The original code for GET requests will also be commented out
-    # return render_template('index.html')
+    if request.method == 'POST':
+        video_url = request.form.get('video_url')
+        try:
+            # Call the processing function (which now returns dummy data)
+            results = process_video_url(video_url)
+            return render_template('results.html', results=results)
+        except Exception as e:
+            # Make sure to still render error.html if something goes wrong even with dummy data
+            return render_template('error.html', error=str(e))
+    # Original GET request part:
+    return render_template('index.html')
 
 
 if __name__ == '__main__':
