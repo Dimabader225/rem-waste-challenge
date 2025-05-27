@@ -1,57 +1,172 @@
 import os
 import tempfile
-import requests # This must be installed in requirements.txt
+import requests
 
-# Temporarily comment out these heavy imports
-# import numpy as np
-# import librosa
-# from moviepy import VideoFileClip
+# Re-enabled heavy imports for current stage
+import numpy as np
+import librosa
+from moviepy import VideoFileClip
+import speech_recognition as sr
+import yt_dlp
+
+# Keep these imports commented out for now
 # from sklearn.ensemble import RandomForestClassifier
 # from sklearn.model_selection import train_test_split
 # from sklearn.preprocessing import StandardScaler
 # from sklearn.pipeline import make_pipeline
 # import pickle
-# import speech_recognition as sr
-# import yt_dlp
+# import torch
+# import torchaudio
+# import transformers
+# import soundfile # likely needed by librosa or moviepy, but let's see
 
-
-# Temporarily comment out all functions that rely on heavy libraries
+# --- Dummy accent training/classification functions (still commented out) ---
+# Sample accent data (in a real app, we'd use a proper dataset)
+# Format: (audio_features, accent_label)
+# 0: American, 1: British, 2: Australian
 # def create_sample_data():
-#     pass
+#     # This is just a placeholder - real implementation would use proper training data
+#     np.random.seed(42)
+#     X = np.random.rand(100, 20)  # 100 samples, 20 features each
+#     y = np.random.randint(0, 3, 100)  # Random labels
+#     return X, y
+
+# Train a simple classifier (in production, we'd use a pre-trained model)
 # def train_accent_classifier():
-#     pass
+#     X, y = create_sample_data()
+#     X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2)
+
+#     model = make_pipeline(
+#         StandardScaler(),
+#         RandomForestClassifier(n_estimators=100)
+#     )
+#     model.fit(X_train, y_train)
+#     return model
+
+# Extract audio features using librosa
 # def extract_audio_features(audio_path):
-#     pass
-# def download_video(video_url):
-#     pass
-# def extract_audio(video_path):
-#     pass
-# def transcribe_audio(audio_path):
-#     pass
-# def classify_accent(audio_path, model):
-#     pass
+#     y, sr = librosa.load(audio_path, sr=None)
 
+#     features = []
+#     # MFCC (Mel-frequency cepstral coefficients)
+#     mfcc = librosa.feature.mfcc(y=y, sr=sr)
+#     features.extend(np.mean(mfcc, axis=1))
 
-# Main processing function (kept for structure, but its content is dummy for now)
-# This function is at the top level, so 'def' is flush left.
-def process_video_url(video_url):
-    # Lines inside the function are indented by 4 spaces
-    print(f"Skipping video processing for: {video_url}")
-    return {
-        "accent": "Dummy Accent",
-        "confidence": "99.9%",
-        "transcription": "This is a dummy transcription.",
-        "summary": "This is a dummy summary because processing is skipped."
+#     # Spectral contrast
+#     contrast = librosa.feature.spectral_contrast(y=y, sr=sr)
+#     features.extend(np.mean(contrast, axis=1))
+
+#     return np.array(features[:20])  # Limit to 20 features for our dummy model
+
+# --- Core video/audio processing functions (re-enabled) ---
+
+# Download video
+def download_video(video_url):
+    temp_dir = tempfile.mkdtemp()
+    video_path = os.path.join(temp_dir, "temp_video.mp4")
+
+    ydl_opts = {
+        'format': 'bestvideo+bestaudio/best',
+        'merge_output_format': 'mp4',
+        'outtmpl': video_path,
+        'quiet': True,
+        'postprocessors': [{
+            'key': 'FFmpegVideoConvertor',
+            'preferedformat': 'mp4',
+        }]
     }
 
+    try:
+        with yt_dlp.YoutubeDL(ydl_opts) as ydl:
+            ydl.download([video_url])
+    except Exception as e:
+        raise ValueError(f"yt_dlp failed to download and merge video: {e}")
 
-# Flask web application setup (these lines must also be flush left)
-from flask import Flask, request, render_template, jsonify # Keep Flask imports
+    if not os.path.exists(video_path) or os.path.getsize(video_path) < 1000:
+        raise ValueError("Downloaded video file is invalid or corrupted.")
+
+    return video_path, temp_dir
+
+
+# Extract audio from video
+def extract_audio(video_path):
+    video = VideoFileClip(video_path)
+    audio = video.audio
+
+    temp_dir = tempfile.mkdtemp()
+    audio_path = os.path.join(temp_dir, "temp_audio.wav")
+    audio.write_audiofile(audio_path)
+
+    return audio_path, temp_dir
+
+
+# Transcribe speech to text
+def transcribe_audio(audio_path):
+    recognizer = sr.Recognizer()
+    with sr.AudioFile(audio_path) as source:
+        audio_data = recognizer.record(source)
+        try:
+            text = recognizer.recognize_google(audio_data)
+            return text
+        except sr.UnknownValueError:
+            return "Could not understand audio"
+        except sr.RequestError:
+            return "API unavailable"
+
+
+# Classify accent (still commented out for now)
+# def classify_accent(audio_path, model):
+#     features = extract_audio_features(audio_path)
+#     features = features.reshape(1, -1)  # Reshape for single sample
+
+#     # Predict accent
+#     accent_map = {0: "American", 1: "British", 2: "Australian"}
+#     pred = model.predict(features)[0]
+#     proba = model.predict_proba(features)[0]
+#     confidence = np.max(proba) * 100
+
+#     return accent_map.get(pred, "Unknown"), confidence
+
+
+# Main processing function (calls the above, still no accent classification)
+def process_video_url(video_url):
+    # model = train_accent_classifier() # Still commented out
+
+    video_path, video_dir = download_video(video_url)
+
+    try:
+        audio_path, audio_dir = extract_audio(video_path)
+
+        try:
+            transcription = transcribe_audio(audio_path)
+            # accent, confidence = classify_accent(audio_path, model) # Still commented out
+
+            results = {
+                "accent": "Processing (no classification yet)", # Temporary placeholder
+                "confidence": "N/A", # Temporary placeholder
+                "transcription": transcription,
+                "summary": f"Transcription: {transcription}" # Temporary placeholder
+            }
+            return results
+        finally:
+            if os.path.exists(audio_path):
+                os.remove(audio_path)
+            if os.path.exists(audio_dir):
+                os.rmdir(audio_dir)
+    finally:
+        if os.path.exists(video_path):
+            os.remove(video_path)
+        if os.path.exists(video_dir):
+            os.rmdir(video_dir)
+
+
+# Flask web application setup
+from flask import Flask, request, render_template, jsonify
 
 basedir = os.path.abspath(os.path.dirname(__file__))
 template_dir = os.path.join(basedir, 'templates')
 
-# Keep these print statements for debugging
+# Debugging output
 print(f"Current working directory: {os.getcwd()}")
 print(f"Script directory: {basedir}")
 print(f"Templates directory: {template_dir}")
@@ -62,25 +177,18 @@ print(f"Templates contents: {os.listdir(template_dir)}")
 app = Flask(__name__, template_folder=template_dir)
 
 
-# Flask route definition (the decorator is also flush left)
 @app.route('/', methods=['GET', 'POST'])
-# The function definition is also flush left
 def index():
-    # --- RESTORED LOGIC for template rendering ---
-    # Lines inside the function are indented by 4 spaces
     if request.method == 'POST':
-        # Lines inside the if block are indented by 8 spaces
         video_url = request.form.get('video_url')
         try:
-            # This calls your process_video_url which currently returns dummy data
+            # This calls the process_video_url function with its newly enabled logic
             results = process_video_url(video_url)
             return render_template('results.html', results=results)
         except Exception as e:
             return render_template('error.html', error=str(e))
-    return render_template('index.html') # For GET request
-    # --- END RESTORED LOGIC ---
+    return render_template('index.html')
 
 
-# Standard boilerplate for running the Flask app
 if __name__ == '__main__':
     app.run(debug=True)
