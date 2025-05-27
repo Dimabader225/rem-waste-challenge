@@ -172,30 +172,34 @@ def process_video_url(video_url):
 import os
 from flask import Flask, request, render_template, jsonify
 
-# Get the directory where this script is located
 basedir = os.path.abspath(os.path.dirname(__file__))
 template_dir = os.path.join(basedir, 'templates')
-# Debugging output
+
+# Keep these print statements for debugging, they don't harm
 print(f"Current working directory: {os.getcwd()}")
 print(f"Script directory: {basedir}")
 print(f"Templates directory: {template_dir}")
 print(f"Templates exists: {os.path.exists(template_dir)}")
 print(f"Templates contents: {os.listdir(template_dir)}")
 
-# Initialize Flask with explicit template folder
 app = Flask(__name__, template_folder=template_dir)
-
 
 @app.route('/', methods=['GET', 'POST'])
 def index():
-    if request.method == 'POST':
-        video_url = request.form.get('video_url')
-        try:
-            results = process_video_url(video_url)
-            return render_template('results.html', results=results)
-        except Exception as e:
-            return render_template('error.html', error=str(e))
-    return render_template('index.html')
+    # --- TEMPORARY DEBUGGING CODE: This line will run instead of your original logic ---
+    return "Hello from Render! Your basic Flask app is running."
+    # --- END TEMPORARY DEBUGGING CODE ---
+
+    # The original code for handling POST requests will be commented out for now
+    # if request.method == 'POST':
+    #     video_url = request.form.get('video_url')
+    #     try:
+    #         results = process_video_url(video_url)
+    #         return render_template('results.html', results=results)
+    #     except Exception as e:
+    #         return render_template('error.html', error=str(e))
+    # # The original code for GET requests will also be commented out
+    # return render_template('index.html')
 
 
 if __name__ == '__main__':
