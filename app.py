@@ -64,7 +64,7 @@ import requests
 
 
     @app.route('/', methods=['GET', 'POST'])
-    def index():
+def index():
         # --- RESTORED LOGIC for template rendering ---
         if request.method == 'POST':
             video_url = request.form.get('video_url')
@@ -78,5 +78,5 @@ import requests
         # --- END RESTORED LOGIC ---
 
 
-    if __name__ == '__main__':
-        app.run(debug=True)
+if __name__ == '__main__':
+    app.run(debug=True)
