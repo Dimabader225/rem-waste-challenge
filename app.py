@@ -9,24 +9,67 @@ from moviepy import VideoFileClip
 import speech_recognition as sr
 # import yt_dlp # This remains commented out
 
-# Keep these imports commented out for now
-# from sklearn.ensemble import RandomForestClassifier
-# from sklearn.model_selection import train_test_split
-# from sklearn.preprocessing import StandardScaler
-# from sklearn.pipeline import make_pipeline
-# import pickle
-# import torch
-# import torchaudio
-# import transformers
-# import soundfile # likely needed by librosa or moviepy, but let's see
+# Re-enabled imports for accent classification
+from sklearn.ensemble import RandomForestClassifier
+from sklearn.model_selection import train_test_split
+from sklearn.preprocessing import StandardScaler
+from sklearn.pipeline import make_pipeline
+import pickle
+# import torch # Still commented out
+# import torchaudio # Still commented out
+# import transformers # Still commented out
+# import soundfile # Still commented out
 
-# --- Dummy accent training/classification functions (still commented out) ---
-# def create_sample_data():
-#     pass
-# def train_accent_classifier():
-#     pass
-# def extract_audio_features(audio_path):
-#     pass
+# --- Accent training/classification functions (ALL UNCOMMENTED) ---
+# Sample accent data (in a real app, we'd use a proper dataset)
+# Format: (audio_features, accent_label)
+# 0: American, 1: British, 2: Australian
+def create_sample_data():
+    # This is just a placeholder - real implementation would use proper training data
+    np.random.seed(42)
+    X = np.random.rand(100, 20)  # 100 samples, 20 features each
+    y = np.random.randint(0, 3, 100)  # Random labels (0: American, 1: British, 2: Australian)
+    return X, y
+
+# Train a simple classifier (in production, we'd use a pre-trained model)
+def train_accent_classifier():
+    X, y = create_sample_data()
+    X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2)
+
+    model = make_pipeline(
+        StandardScaler(),
+        RandomForestClassifier(n_estimators=100)
+    )
+    model.fit(X_train, y_train)
+    return model
+
+# Extract audio features using librosa
+def extract_audio_features(audio_path):
+    y, sr_audio = librosa.load(audio_path, sr=None) # Using sr_audio to avoid conflict with global sr (SpeechRecognition)
+
+    features = []
+    # MFCC (Mel-frequency cepstral coefficients)
+    mfcc = librosa.feature.mfcc(y=y, sr=sr_audio)
+    features.extend(np.mean(mfcc, axis=1))
+
+    # Spectral contrast
+    contrast = librosa.feature.spectral_contrast(y=y, sr=sr_audio)
+    features.extend(np.mean(contrast, axis=1))
+
+    return np.array(features[:20]) # Limit to 20 features for our dummy model
+
+# Classify accent
+def classify_accent(audio_path, model):
+    features = extract_audio_features(audio_path)
+    features = features.reshape(1, -1)  # Reshape for single sample
+
+    # Predict accent
+    accent_map = {0: "American", 1: "British", 2: "Australian"}
+    pred = model.predict(features)[0]
+    proba = model.predict_proba(features)[0]
+    confidence = np.max(proba) * 100
+
+    return accent_map.get(pred, "Unknown"), confidence
 
 # --- Core video/audio processing functions (re-enabled) ---
 
@@ -54,16 +97,8 @@ def download_video(video_url): # video_url here will be the direct MP4 URL
     if not os.path.exists(video_path) or os.path.getsize(video_path) < 1000:
         raise ValueError(f"Downloaded video file is invalid or corrupted. Size: {os.path.getsize(video_path)} bytes.")
 
-    print(f"Successfully downloaded video to: {video_path}")
-    # Inside your download_video function, after the 'if not os.path.exists...' check
-    # and before the return statement:
-    if not os.path.exists(video_path) or os.path.getsize(video_path) < 1000:
-        raise ValueError(f"Downloaded video file is invalid or corrupted. Size: {os.path.getsize(video_path)} bytes.")
-
-    print(
-        f"Successfully downloaded video to: {video_path}. File size: {os.path.getsize(video_path)} bytes.")  # ADD THIS LINE
+    print(f"Successfully downloaded video to: {video_path}. File size: {os.path.getsize(video_path)} bytes.")
     return video_path, temp_dir
-  
 
 
 # Extract audio from video
@@ -92,39 +127,26 @@ def transcribe_audio(audio_path):
             return "API unavailable"
 
 
-# Classify accent (still commented out for now)
-# def classify_accent(audio_path, model):
-#     features = extract_audio_features(audio_path)
-#     features = features.reshape(1, -1)  # Reshape for single sample
-
-#     accent_map = {0: "American", 1: "British", 2: "Australian"}
-#     pred = model.predict(features)[0]
-#     proba = model.predict_proba(features)[0]
-#     confidence = np.max(proba) * 100
-
-#     return accent_map.get(pred, "Unknown"), confidence
-
-
-# Main processing function (calls the above, still no accent classification)
+# Main processing function (calls the above, now with accent classification)
 def process_video_url(user_provided_url): # user_provided_url here is ignored
-    # model = train_accent_classifier() # Still commented out
+    model = train_accent_classifier() # UNCOMMENTED
 
-    # --- MODIFIED PART: Hardcode the test video URL here ---
+    # Hardcode the test video URL here
     test_mp4_url = "https://www.learningcontainer.com/wp-content/uploads/2020/05/sample-mp4-file.mp4"
-    video_path, video_dir = download_video(test_mp4_url) # Call with the test URL
-    # --- END MODIFIED PART ---
+    video_path, video_dir = download_video(test_mp4_url)
 
     try:
         audio_path, audio_dir = extract_audio(video_path)
 
         try:
             transcription = transcribe_audio(audio_path)
+            accent, confidence = classify_accent(audio_path, model) # UNCOMMENTED
 
             results = {
-                "accent": "Processing (no classification yet)",
-                "confidence": "N/A",
+                "accent": accent, # RESTORED
+                "confidence": f"{confidence:.1f}%", # RESTORED
                 "transcription": transcription,
-                "summary": f"Transcription: {transcription}"
+                "summary": f"The speaker has a {accent} accent with {confidence:.1f}% confidence. Transcription: {transcription}" # RESTORED
             }
             return results
         finally:
