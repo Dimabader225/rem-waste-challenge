@@ -4,5 +4,4 @@ requests
 numpy
 librosa
 moviepy
-yt-dlp
 SpeechRecognition
