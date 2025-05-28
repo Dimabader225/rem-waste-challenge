@@ -146,7 +146,7 @@ def process_video_url(user_provided_url): # user_provided_url is still ignored f
     model = GLOBAL_ACCENT_MODEL
 
     # --- NEW: Download a tiny MP3 directly ---
-    test_mp3_url = "https://www.mfiles.co.uk/mp3-midi/test-mp3.mp3" # A 10KB MP3 file
+    test_mp3_url = "https://www2.cs.uic.edu/~i101/pub/audio/herold/trumpet-1.mp3"
     temp_dir = tempfile.mkdtemp()
     audio_path = os.path.join(temp_dir, "test_audio.mp3") # Save as MP3
 
