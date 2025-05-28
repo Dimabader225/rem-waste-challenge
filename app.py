@@ -55,7 +55,15 @@ def download_video(video_url): # video_url here will be the direct MP4 URL
         raise ValueError(f"Downloaded video file is invalid or corrupted. Size: {os.path.getsize(video_path)} bytes.")
 
     print(f"Successfully downloaded video to: {video_path}")
+    # Inside your download_video function, after the 'if not os.path.exists...' check
+    # and before the return statement:
+    if not os.path.exists(video_path) or os.path.getsize(video_path) < 1000:
+        raise ValueError(f"Downloaded video file is invalid or corrupted. Size: {os.path.getsize(video_path)} bytes.")
+
+    print(
+        f"Successfully downloaded video to: {video_path}. File size: {os.path.getsize(video_path)} bytes.")  # ADD THIS LINE
     return video_path, temp_dir
+  
 
 
 # Extract audio from video
@@ -102,7 +110,7 @@ def process_video_url(user_provided_url): # user_provided_url here is ignored
     # model = train_accent_classifier() # Still commented out
 
     # --- MODIFIED PART: Hardcode the test video URL here ---
-    test_mp4_url = "http://techslides.com/demos/sample-videos/small.mp4"
+    test_mp4_url = "https://www.learningcontainer.com/wp-content/uploads/2020/05/sample-mp4-file.mp4"
     video_path, video_dir = download_video(test_mp4_url) # Call with the test URL
     # --- END MODIFIED PART ---
 
