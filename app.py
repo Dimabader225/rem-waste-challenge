@@ -5,7 +5,7 @@ import requests
 # Re-enabled heavy imports for current stage
 import numpy as np
 import librosa
-from moviepy import VideoFileClip
+from moviepy import VideoFileClip # Keep for extract_audio if you re-enable it later
 import speech_recognition as sr
 # import yt_dlp # This remains commented out
 
@@ -71,19 +71,18 @@ def classify_accent(audio_path, model):
 
     return accent_map.get(pred, "Unknown"), confidence
 
-# --- Core video/audio processing functions (re-enabled) ---
+# --- Core video/audio processing functions (modified for MP3 test) ---
 
-# Download video (MODIFIED TO USE REQUESTS FOR DIRECT MP4 URL)
-def download_video(video_url): # video_url here will be the direct MP4 URL
+# This function is not called in the MP3 test, but kept for future use
+def download_video(video_url):
     temp_dir = tempfile.mkdtemp()
     video_path = os.path.join(temp_dir, "temp_video.mp4")
 
-    # The hardcoded test video URL will be passed from process_video_url
     print(f"Attempting to download video from: {video_url} to {video_path}")
 
     try:
         response = requests.get(video_url, stream=True)
-        response.raise_for_status() # Raise an exception for HTTP errors (4xx or 5xx)
+        response.raise_for_status()
 
         with open(video_path, 'wb') as f:
             for chunk in response.iter_content(chunk_size=8192):
@@ -101,7 +100,7 @@ def download_video(video_url): # video_url here will be the direct MP4 URL
     return video_path, temp_dir
 
 
-# Extract audio from video
+# This function is not called in the MP3 test, but kept for future use
 def extract_audio(video_path):
     video = VideoFileClip(video_path)
     audio = video.audio
@@ -113,7 +112,7 @@ def extract_audio(video_path):
     return audio_path, temp_dir
 
 
-# Transcribe speech to text
+# Transcribe speech to text (same as before)
 def transcribe_audio(audio_path):
     recognizer = sr.Recognizer()
     with sr.AudioFile(audio_path) as source:
@@ -127,47 +126,73 @@ def transcribe_audio(audio_path):
             return "API unavailable"
 
 
-# Main processing function (calls the above, now with accent classification)
-def process_video_url(user_provided_url): # user_provided_url here is ignored
-    model = train_accent_classifier() # UNCOMMENTED
+# --- Global Model Training (RUNS ONCE AT APP STARTUP) ---
+# This is the correct way to train a model in a web service
+# It will run when Gunicorn starts a worker process
+try:
+    GLOBAL_ACCENT_MODEL = train_accent_classifier()
+    print("Accent classifier model trained successfully on startup.")
+except Exception as e:
+    GLOBAL_ACCENT_MODEL = None # Set to None if training fails
+    print(f"ERROR: Could not train accent classifier on startup: {e}")
 
-    # Hardcode the test video URL here
-    test_mp4_url = "https://www.learningcontainer.com/wp-content/uploads/2020/05/sample-mp4-file.mp4"
-    video_path, video_dir = download_video(test_mp4_url)
+
+# Main processing function (MODIFIED FOR TINY MP3 TEST)
+def process_video_url(user_provided_url): # user_provided_url is still ignored for this test
+    # Use the globally trained model
+    if GLOBAL_ACCENT_MODEL is None:
+        # If model failed to train on startup, raise an error or return a specific message
+        raise ValueError("Accent classifier model is not available due to startup error.")
+    model = GLOBAL_ACCENT_MODEL
+
+    # --- NEW: Download a tiny MP3 directly ---
+    test_mp3_url = "https://www.mfiles.co.uk/mp3-midi/test-mp3.mp3" # A 10KB MP3 file
+    temp_dir = tempfile.mkdtemp()
+    audio_path = os.path.join(temp_dir, "test_audio.mp3") # Save as MP3
+
+    print(f"Attempting to download test MP3 from: {test_mp3_url} to {audio_path}")
+    try:
+        response = requests.get(test_mp3_url, stream=True)
+        response.raise_for_status()
+        with open(audio_path, 'wb') as f:
+            for chunk in response.iter_content(chunk_size=8192):
+                f.write(chunk)
+        print(f"Successfully downloaded test MP3 to: {audio_path}. File size: {os.path.getsize(audio_path)} bytes.")
+    except requests.exceptions.RequestException as e:
+        raise ValueError(f"Failed to download test MP3 from {test_mp3_url}: {e}")
+    except Exception as e:
+        raise ValueError(f"An unexpected error occurred during MP3 download: {e}")
+
+    audio_dir = temp_dir # Use the same temp_dir for cleanup
 
     try:
-        audio_path, audio_dir = extract_audio(video_path)
+        transcription = transcribe_audio(audio_path)
+        accent, confidence = classify_accent(audio_path, model)
 
-        try:
-            transcription = transcribe_audio(audio_path)
-            accent, confidence = classify_accent(audio_path, model) # UNCOMMENTED
-
-            results = {
-                "accent": accent, # RESTORED
-                "confidence": f"{confidence:.1f}%", # RESTORED
-                "transcription": transcription,
-                "summary": f"The speaker has a {accent} accent with {confidence:.1f}% confidence. Transcription: {transcription}" # RESTORED
-            }
-            return results
-        finally:
-            if os.path.exists(audio_path):
-                os.remove(audio_path)
-            if os.path.exists(audio_dir):
-                os.rmdir(audio_dir)
+        results = {
+            "accent": accent,
+            "confidence": f"{confidence:.1f}%",
+            "transcription": transcription,
+            "summary": f"The speaker has a {accent} accent with {confidence:.1f}% confidence. Transcription: {transcription}"
+        }
+        return results
     finally:
-        if os.path.exists(video_path):
-            os.remove(video_path)
-        if os.path.exists(video_dir):
-            os.rmdir(video_dir)
+        # Clean up the downloaded MP3 and its temp directory
+        if os.path.exists(audio_path):
+            os.remove(audio_path)
+        if os.path.exists(audio_dir):
+            os.rmdir(audio_dir)
+        # No video files to clean up in this specific test
+        pass
 
 
-# Flask web application setup
+# Flask web application setup (unchanged)
 from flask import Flask, request, render_template, jsonify
 
 basedir = os.path.abspath(os.path.dirname(__file__))
 template_dir = os.path.join(basedir, 'templates')
 
-# Debugging output
+# Debugging output for startup
 print(f"Current working directory: {os.getcwd()}")
 print(f"Script directory: {basedir}")
 print(f"Templates directory: {template_dir}")
@@ -181,9 +206,8 @@ app = Flask(__name__, template_folder=template_dir)
 @app.route('/', methods=['GET', 'POST'])
 def index():
     if request.method == 'POST':
-        video_url = request.form.get('video_url')
+        video_url = request.form.get('video_url') # Still gets URL, but it's ignored for this test
         try:
-            # This calls the process_video_url function with its newly enabled logic
             results = process_video_url(video_url)
             return render_template('results.html', results=results)
         except Exception as e:
